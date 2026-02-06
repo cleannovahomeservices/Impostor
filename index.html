@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Impostor — Palabras Personalizadas</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <meta name="theme-color" content="#111827" />
+</head>
+<body>
+  <div class="bg">
+    <div class="stars"></div>
+    <div class="glow g1"></div>
+    <div class="glow g2"></div>
+  </div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">🕵️</span>
+      <div>
+        <div class="title">Impostor</div>
+        <div class="subtitle">Modo normal • local</div>
+      </div>
+    <button id="btnHelp" class="iconBtn" aria-label="Ayuda">?</button>
+  </header>
+
+  <main class="wrap">
+    <!-- HOME -->
+    <section id="screenHome" class="screen active" aria-label="Inicio">
+      <div class="card hero">
+        <div class="heroText">
+          <h1>Encuentra al impostor</h1>
+          <p>
+            Tú pones las palabras. La app elige una al azar y decide quién es el impostor.
+            Pasad el móvil y mirad vuestro rol, uno por uno.
+          </p>
+          <div class="ctaRow">
+            <button id="btnGoSetup" class="btn primary">Empezar</button>
+            <button id="btnGoWords" class="btn ghost">Mis palabras</button>
+          </div>
+          <div class="tiny">
+            Consejo anti-trampa: revela tu carta <strong>manteniendo pulsado</strong>.
+          </div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <h2>Cómo se juega</h2>
+          <ol class="steps">
+            <li>Elige nº de jugadores.</li>
+            <li>Escribe tu lista (o usa la de ejemplo).</li>
+            <li>La app elige palabra e impostor.</li>
+            <li>Da pistas sin decir la palabra. ¡Vota!</li>
+          </ol>
+        </div>
+
+        <div class="card">
+          <h2>Lo que te diferencia</h2>
+          <ul class="bullets">
+            <li>Listas de palabras personalizadas (guardadas).</li>
+            <li>Selección aleatoria con un toque.</li>
+            <li>Animaciones y personajes (modo party).</li>
+            <li>Funciona offline (si es web/PWA).</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- WORDS -->
+    <section id="screenWords" class="screen" aria-label="Mis palabras">
+      <div class="card">
+        <div class="row space">
+          <div>
+            <h2>Crea tu lista</h2>
+            <p class="muted">Crea tus propias listas y palabras. Las listas incluidas no se pueden modificar.</p>
+          </div>
+          <button id="btnBackFromWords" class="btn ghost">Volver</button>
+        </div>
+
+        <div class="row">
+          <label class="label">
+            Nombre de la lista
+            <input id="listName" class="input" placeholder="Ej: Clase / Bromas / Animales" maxlength="40" />
+          </label>
+<label class="label">
+            Listas guardadas
+            <select id="savedLists" class="input"></select>
+          </label>
+        </div>
+
+        <label class="label">
+          Palabras (1 por línea)
+          <textarea id="wordsBox" class="textarea" rows="10" spellcheck="false"
+            placeholder="Ej:
+pizza
+sushi
+hamburguesa"></textarea>
+        </label>
+
+        <div class="divider"></div>
+
+        <div class="row wrapRow">
+          <label class="label" style="flex:1; min-width:260px;">
+            Webhook n8n (IA) — para generar pistas
+            <input id="aiWebhook" class="input" placeholder="Pega aquí tu webhook de n8n" />
+            <span class="hint">Se guarda solo en este dispositivo. Si lo dejas vacío, no se usa IA.</span>
+          </label>
+          <button id="btnGenHints" class="btn">Generar pistas (fácil + difícil)</button>
+        </div>
+        <div id="aiStatus" class="tiny muted" aria-live="polite"></div>
+
+        <div class="row wrapRow">
+          <button id="btnSaveList" class="btn primary">Guardar lista</button>
+          <button id="btnLoadList" class="btn">Cargar</button>
+          <button id="btnDeleteList" class="btn danger">Borrar</button>
+          <div class="spacer"></div>
+          <button id="btnFillExample" class="btn ghost">Rellenar con ejemplo</button>
+        </div>
+      </div>
+    </section>
+<!-- SETUP -->
+    <section id="screenSetup" class="screen" aria-label="Configurar partida">
+      <div class="card">
+        <div class="row space">
+          <div>
+            <h2>Configurar partida</h2>
+            <p class="muted">Elige jugadores y de dónde salen las palabras.</p>
+          </div>
+          <button id="btnBackFromSetup" class="btn ghost">Volver</button>
+        </div>
+
+        <div class="grid2">
+          <label class="label">
+            Número de jugadores
+            <input id="numPlayers" class="input" type="number" min="3" max="10" value="5" />
+            <span class="hint">Entre 3 y 10.</span>
+          </label>
+
+          <label class="label">
+            Número de impostores
+            <input id="numImpostors" class="input" type="number" min="1" max="3" value="1" />
+            <span class="hint">Máximo 3 (y siempre menos que los jugadores).</span>
+          </label>
+
+          <label class="label">
+            Lista de palabras
+            <select id="pickList" class="input"></select>
+            <span class="hint">Puedes crear listas en “Mis palabras”.</span>
+          </label>
+
+          <label class="label">
+            Tiempo de debate (opcional)
+            <select id="debateTimer" class="input">
+              <option value="0" selected>Sin temporizador</option>
+              <option value="180">3 minutos</option>
+              <option value="300">5 minutos</option>
+              <option value="600">10 minutos</option>
+            </select>
+            <span class="hint">La app puede cronometrar la charla.</span>
+          
+          <div id="hintWrap"><label class="label">
+            Pista para el impostor (opcional)
+            <select id="impostorHintMode" class="input">
+              <option value="off" selected>Sin pista</option>
+              <option value="easy">Pista fácil</option>
+              <option value="hard">Pista difícil</option>
+            </select>
+            <span class="hint">Si activas la pista, el impostor verá una ayuda (sin revelar la palabra).</span>
+          </label></div>
+
+</label>        </div>
+
+        <div class="divider"></div>
+
+<h3 class="h3">Nombres de jugadores</h3>
+<p class="muted">Escribe los nombres para que la app diga quién empieza.</p>
+<div id="namesWrap" class="namesWrap"></div>
+
+<div class="row space">
+          <button id="btnStart" class="btn primary">Iniciar y repartir roles</button>
+          <button id="btnGoWordsFromSetup" class="btn ghost">Crear mi lista</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="row">
+          <div class="miniCard">
+            <div class="miniIcon">🎲</div>
+            <div>
+              <div class="miniTitle">Random real</div>
+              <div class="miniText">La palabra y el impostor se eligen al azar cada partida.</div>
+            </div>
+          </div>
+          <div class="miniCard">
+            <div class="miniIcon">🧠</div>
+            <div>
+              <div class="miniTitle">Idea futura (IA)</div>
+              <div class="miniText">Podemos añadir “detectar categoría” más adelante.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- REVEAL -->
+    <section id="screenReveal" class="screen" aria-label="Revelar carta">
+      <div class="card revealCard">
+
+        <div class="progressRow">
+          <div id="progressText">Jugador 1 de 3</div>
+          <div id="progressPct">0%</div>
+        </div>
+        <div class="progressBar" aria-hidden="true">
+          <div id="progressFill" class="progressFill"></div>
+        </div>
+
+        <div class="row space">
+          <div>
+            <h2 id="revealHeader">Turno de Jugador 1</h2>
+            <p class="muted" id="revealSub">Toca la carta para ver tu rol</p>
+          </div>
+          <button id="btnAbort" class="btn danger">Salir</button>
+        </div>
+
+        <div class="revealArea" id="revealArea" role="button" tabindex="0" aria-label="Toca para revelar">
+          <img id="revealImg" class="revealImg" src="assets/reveal_bg.png" alt="" />
+          <div class="revealCenterOverlay" id="tapHint">
+            <div class="tapIcon" aria-hidden="true">🎭</div>
+            <div class="tapText">Toca para revelar</div>
+          </div>
+
+          <div id="secretBox" class="secretBox hidden" aria-live="polite">
+            <div id="secretTitle" class="secretTitle"></div>
+            <div id="secretValue" class="secretValue"></div>
+            <div id="secretExtra" class="secretExtra" hidden></div>
+          </div>
+        </div>
+
+        <div class="row space">
+          <button id="btnNextPlayer" class="btn primary wideBtn">Pasar a siguiente jugador</button>
+        </div>
+
+        <div class="tiny muted centerNote" id="revealFootNote">
+          Primero revela tu carta para ver tu rol.
+        </div>
+
+      </div>
+    </section>
+
+<!-- END -->
+<section id="screenEnd" class="screen" aria-label="Discusión">
+  <div class="card">
+    <h2>¡A discutir!</h2>
+    <p class="muted">Ya se repartieron los roles. Hablad y tratad de descubrir al impostor.</p>
+
+    <div id="debateTimerCard" class="debateTimerCard" hidden>
+      <div class="debateLabel">⏱️ Tiempo de debate</div>
+      <div id="debateTimerValue" class="debateValue">00:00</div>
+    </div>
+
+
+    <div class="starterCard">
+      <div class="starterIcon">🎤</div>
+      <div>
+        <div class="starterLabel">Empieza:</div>
+        <div id="startPlayer" class="starterName">—</div>
+      </div>
+    </div>
+
+    <details class="details">
+      <summary>Mostrar solución</summary>
+      <div class="endGrid">
+        <div class="endItem">
+          <div class="endLabel">Palabra</div>
+          <div id="endWord" class="endValue">—</div>
+        </div>
+        <div class="endItem">
+          <div class="endLabel">Impostor(es)</div>
+          <div id="endImpostors" class="endValue">—</div>
+        </div>
+      </div>
+      <p class="tiny muted">Úsalo solo cuando termine la ronda.</p>
+    </details>
+
+    <div class="row space">
+      <button id="btnNewGame" class="btn primary">Nueva partida</button>
+      <button id="btnGoHome" class="btn ghost">Inicio</button>
+    </div>
+  </div>
+</section>
+
+<!-- MODAL HELP -->
+    <dialog id="helpModal" class="modal">
+      <div class="modalInner">
+        <div class="row space">
+          <h3>Ayuda rápida</h3>
+          <button id="btnCloseHelp" class="iconBtn" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="muted">
+          <p><strong>Objetivo:</strong> descubrir quién no sabe la palabra.</p>
+          <p><strong>Regla básica:</strong> da pistas sin decir la palabra exacta.</p>
+          <p><strong>Anti-trampa:</strong> la carta se revela solo mientras mantienes pulsado.</p>
+        </div>
+        <div class="row space">
+          <button id="btnCloseHelp2" class="btn primary">Entendido</button>
+        </div>
+      </div>
+    </dialog>
+
+  </main>
+
+  <canvas id="confetti" class="confetti" aria-hidden="true"></canvas>
+  <script src="app.js"></script>
+</body>
+</html>
