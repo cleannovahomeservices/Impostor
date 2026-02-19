@@ -613,6 +613,14 @@ function isOfficialList(listObj){
   return !!(listObj && listObj.custom === false);
 }
 
+function setHintOptionsEnabled(enabled){
+  const hintSel = $("impostorHintMode");
+  if(!hintSel) return;
+  [...hintSel.options].forEach((opt)=>{
+    if(opt.value !== "off") opt.disabled = !enabled;
+  });
+}
+
 function updateHintVisibility(){
   const wrap = $("hintWrap");
   const sel = $("pickList");
@@ -624,17 +632,20 @@ function updateHintVisibility(){
   const listObj = findListById(lists, sel.value) || lists[0];
   const hasCustomHints = !!(listObj && listObj.custom === true && listObj.aiHints && typeof listObj.aiHints === "object" && Object.keys(listObj.aiHints).length);
   const isOfficial = isOfficialList(listObj);
-  const show = isOfficial || hasCustomHints;
+  const hintReady = isOfficial || hasCustomHints;
 
-  wrap.hidden = !show;
-  if(info){
-    info.hidden = !show;
-    info.textContent = hasCustomHints
-      ? "Esta lista tiene pistas IA ✅"
-      : (isOfficial ? "Esta lista tiene pistas ✅" : "");
-  }
-  if(!show){
+  wrap.hidden = false;
+  setHintOptionsEnabled(hintReady);
+
+  if(!hintReady){
     hintSel.value = "off";
+  }
+
+  if(info){
+    info.hidden = false;
+    info.textContent = hintReady
+      ? (hasCustomHints ? "Esta lista personalizada tiene pistas IA ✅" : "Esta lista tiene pistas ✅")
+      : "Esta lista aún no tiene pistas IA. Genéralas en 'Mis palabras' para activar pista fácil/difícil.";
   }
 }
 
@@ -1262,29 +1273,44 @@ async function onGenerateHintsClick(){
     const map = new Map(
       items
         .filter(Boolean)
-        .map(x => [normWord(String(x.word || "")), x])
+        .map(x => {
+          const rawWord = x.word ?? x.palabra ?? x.term ?? x.keyword ?? "";
+          return [normWord(String(rawWord)), x];
+        })
         .filter(([k]) => !!k)
     );
 
     // Guardar en la lista (aiHints: { word: {easy:[], hard:[]} })
     listObj.words = words;
     listObj.aiHints = listObj.aiHints && typeof listObj.aiHints === "object" ? listObj.aiHints : {};
+    let storedHints = 0;
     for(const w of words){
       const key = normWord(w);
       const x = map.get(key);
       if(x){
         // Guardamos por clave normalizada para que luego el juego pueda
         // encontrar la pista aunque el usuario escriba "Juan" vs "juan".
-        listObj.aiHints[key] = {
-          easy: Array.isArray(x.easy) ? x.easy.slice(0,10) : [],
-          hard: Array.isArray(x.hard) ? x.hard.slice(0,10) : []
-        };
+        const easy = Array.isArray(x.easy) ? x.easy.slice(0,10) : [];
+        const hard = Array.isArray(x.hard) ? x.hard.slice(0,10) : [];
+        if(easy.length || hard.length){
+          listObj.aiHints[key] = { easy, hard };
+          storedHints++;
+        }
       }
     }
+    if(storedHints === 0){
+      throw new Error("WEBHOOK_EMPTY_HINTS");
+    }
+
     saveAllLists(lists);
     refreshListSelectors();
 
-    if(st) st.textContent = "Pistas generadas y guardadas ✅";
+    if($("pickCategory")) $("pickCategory").value = "Todas";
+    if($("pickList")) $("pickList").value = listObj.id;
+    updateHintVisibility();
+    applyHintModeForCurrentList();
+
+    if(st) st.textContent = `Pistas generadas y guardadas ✅ (${storedHints} palabras con pista)`;
   }catch(e){
     console.error(e);
     if(String(e?.message||"").includes("NO_WEBHOOK")){
