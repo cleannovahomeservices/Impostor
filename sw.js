@@ -1,4 +1,4 @@
-const CACHE_NAME = "impostor-pwa-v7-3";
+const CACHE_NAME = "impostor-pwa-v8-0";
 const ASSETS = [
   "./",
   "./index.html",
@@ -7,7 +7,13 @@ const ASSETS = [
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
-  // Fondos de reveal ahora se generan en runtime (SVG data URLs)
+  "./assets/reveal_bg.png",
+  "./assets/reveal_alt1.png",
+  "./assets/reveal_alt3.png",
+  "./assets/reveal_alt4.png",
+  "./assets/reveal_alt5.png",
+  "./assets/reveal_alt6.png",
+  "./assets/reveal_alt7.png"
 ];
 
 self.addEventListener("install", (event) => {
