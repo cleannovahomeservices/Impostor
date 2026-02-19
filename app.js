@@ -512,16 +512,29 @@ async function generateHintsViaWebhook({ words, lang="es", easyCount=5, hardCoun
   const url = getAiWebhookUrl();
   if(!url) throw new Error("NO_WEBHOOK");
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ lang, words, easyCount, hardCount })
-  });
-  if(!res.ok){
-    const txt = await res.text().catch(()=>"");
-    throw new Error(`WEBHOOK_${res.status}:${txt}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(()=>controller.abort(), 12000);
+
+  try{
+    const res = await fetch(url, {
+      method: "POST",
+      mode: "cors",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lang, words, easyCount, hardCount }),
+      signal: controller.signal
+    });
+    if(!res.ok){
+      const txt = await res.text().catch(()=>"");
+      throw new Error(`WEBHOOK_${res.status}:${txt}`);
+    }
+    return await res.json();
+  }catch(err){
+    if(err?.name === "AbortError") throw new Error("WEBHOOK_TIMEOUT");
+    throw err;
+  }finally{
+    clearTimeout(timeout);
   }
-  return await res.json();
 }
 
 // UI: refresca selectores (Mis palabras / Setup)
@@ -1021,9 +1034,23 @@ function nextRevealImage(){
 let pendingSecret = { title: "", value: "", extraHtml: "", isImpostor: false };
 let isSecretShown = false;
 
+if(revealImg){
+  REVEAL_IMAGES.slice(0,2).forEach((src)=>{
+    const img = new Image();
+    img.src = src;
+  });
+  revealImg.addEventListener("error", ()=>{
+    revealImg.src = REVEAL_IMAGES[0];
+    revealImg.classList.add("revealImgFallback");
+  });
+  revealImg.addEventListener("load", ()=> revealImg.classList.remove("revealImgFallback"));
+}
+
+
 function setRevealBackground(){
   if(!revealImg) return;
-  revealImg.src = nextRevealImage();
+  const next = nextRevealImage();
+  revealImg.src = next;
 }
 
 function hideSecretUI(){
@@ -1227,7 +1254,9 @@ async function onGenerateHintsClick(){
 
   try{
     const data = await generateHintsViaWebhook({ words, lang: "es", easyCount: 5, hardCount: 5 });
-    const items = Array.isArray(data?.items) ? data.items : [];
+    const items = Array.isArray(data)
+      ? data
+      : (Array.isArray(data?.items) ? data.items : (Array.isArray(data?.data?.items) ? data.data.items : []));
     // Normalizamos claves para que coincidan aunque el webhook devuelva
     // palabras con distinta capitalización/espacios.
     const map = new Map(
@@ -1260,8 +1289,10 @@ async function onGenerateHintsClick(){
     console.error(e);
     if(String(e?.message||"").includes("NO_WEBHOOK")){
       alert("Falta el webhook de n8n.");
+    }else if(String(e?.message||"").includes("TIMEOUT")){
+      alert("El webhook tardó demasiado en responder.\n\nComprueba la conexión móvil o el servidor de n8n.");
     }else{
-      alert("No se pudieron generar las pistas.\n\nAsegúrate de que tu webhook responde con JSON en formato { items: [...] }.");
+      alert("No se pudieron generar las pistas.\n\nAsegúrate de que tu webhook responde con JSON en formato { items: [...] } o en un array directo.");
     }
     if(st) st.textContent = "";
   }finally{

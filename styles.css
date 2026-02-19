@@ -563,10 +563,16 @@ body{
 
 .revealImg{
   width: 100%;
-  height: min(70vh, 520px);
+  height: min(62vh, 520px);
   object-fit: cover;
   display: block;
   transform: scale(1.02);
+  background: radial-gradient(circle at 30% 30%, rgba(124,58,237,.24), rgba(11,18,32,.92));
+}
+
+.revealImgFallback{
+  object-fit: contain;
+  transform: none;
 }
 
 /* En escritorio preferimos que NO se recorte: se ve la imagen completa */
@@ -678,3 +684,13 @@ body{
 }
 .debateLabel{font-weight:800}
 .debateValue{font-weight:900; font-size: 22px}
+
+
+@media (prefers-reduced-motion: reduce){
+  .glow,
+  .mascot,
+  .starterCard,
+  .handleBar{
+    animation: none !important;
+  }
+}
