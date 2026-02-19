@@ -508,6 +508,20 @@ function setAiWebhookUrl(url){
   try{ localStorage.setItem(LS_AI_WEBHOOK, (url||"").trim()); }catch(e){}
 }
 
+function getHintGenerationErrorMessage(err){
+  const msg = String(err?.message || "");
+  if(msg.includes("NO_WEBHOOK")){
+    return "Falta el webhook de n8n.";
+  }
+  if(msg.includes("TIMEOUT")){
+    return "El webhook tardó demasiado en responder.\n\nComprueba la conexión móvil o el servidor de n8n.";
+  }
+  if(msg.includes("EMPTY_HINTS")){
+    return "El webhook respondió, pero no llegaron pistas válidas.\n\nRevisa que cada item tenga word/palabra y arrays easy/hard.";
+  }
+  return "No se pudieron generar las pistas.\n\nAsegúrate de que tu webhook responde con JSON en formato { items: [...] } o en un array directo.";
+}
+
 async function generateHintsViaWebhook({ words, lang="es", easyCount=5, hardCount=5 }){
   const url = getAiWebhookUrl();
   if(!url) throw new Error("NO_WEBHOOK");
@@ -1313,15 +1327,7 @@ async function onGenerateHintsClick(){
     if(st) st.textContent = `Pistas generadas y guardadas ✅ (${storedHints} palabras con pista)`;
   }catch(e){
     console.error(e);
-    if(String(e?.message||"").includes("NO_WEBHOOK")){
-      alert("Falta el webhook de n8n.");
-    }else if(String(e?.message||"").includes("TIMEOUT")){
-      alert("El webhook tardó demasiado en responder.\n\nComprueba la conexión móvil o el servidor de n8n.");
-    }else if(String(e?.message||"").includes("EMPTY_HINTS")){
-      alert("El webhook respondió, pero no llegaron pistas válidas.\n\nRevisa que cada item tenga word/palabra y arrays easy/hard.");
-    }else{
-      alert("No se pudieron generar las pistas.\n\nAsegúrate de que tu webhook responde con JSON en formato { items: [...] } o en un array directo.");
-    }
+    alert(getHintGenerationErrorMessage(e));
     if(st) st.textContent = "";
   }finally{
     $("btnGenHints").disabled = false;
