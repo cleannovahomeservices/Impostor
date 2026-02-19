@@ -26,6 +26,7 @@
         <div class="title">Impostor</div>
         <div class="subtitle">Modo normal • local</div>
       </div>
+    </div>
     <button id="btnHelp" class="iconBtn" aria-label="Ayuda">?</button>
   </header>
 
@@ -147,6 +148,12 @@ hamburguesa"></textarea>
           </label>
 
           <label class="label">
+            Categoría
+            <select id="pickCategory" class="input"></select>
+            <span class="hint">Filtra las listas por tipo.</span>
+          </label>
+
+          <label class="label">
             Lista de palabras
             <select id="pickList" class="input"></select>
             <span class="hint">Puedes crear listas en “Mis palabras”.</span>
@@ -161,6 +168,7 @@ hamburguesa"></textarea>
               <option value="600">10 minutos</option>
             </select>
             <span class="hint">La app puede cronometrar la charla.</span>
+          </label>
           
           <div id="hintWrap"><label class="label">
             Pista para el impostor (opcional)
@@ -172,8 +180,7 @@ hamburguesa"></textarea>
             <span class="hint">Si activas la pista, el impostor verá una ayuda (sin revelar la palabra).</span>
             <span id="hintInfo" class="hint" style="margin-top:6px"></span>
           </label></div>
-
-</label>        </div>
+        </div>
 
         <div class="divider"></div>
 

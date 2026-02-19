@@ -512,16 +512,29 @@ async function generateHintsViaWebhook({ words, lang="es", easyCount=5, hardCoun
   const url = getAiWebhookUrl();
   if(!url) throw new Error("NO_WEBHOOK");
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ lang, words, easyCount, hardCount })
-  });
-  if(!res.ok){
-    const txt = await res.text().catch(()=>"");
-    throw new Error(`WEBHOOK_${res.status}:${txt}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(()=>controller.abort(), 12000);
+
+  try{
+    const res = await fetch(url, {
+      method: "POST",
+      mode: "cors",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lang, words, easyCount, hardCount }),
+      signal: controller.signal
+    });
+    if(!res.ok){
+      const txt = await res.text().catch(()=>"");
+      throw new Error(`WEBHOOK_${res.status}:${txt}`);
+    }
+    return await res.json();
+  }catch(err){
+    if(err?.name === "AbortError") throw new Error("WEBHOOK_TIMEOUT");
+    throw err;
+  }finally{
+    clearTimeout(timeout);
   }
-  return await res.json();
 }
 
 // UI: refresca selectores (Mis palabras / Setup)
@@ -600,6 +613,14 @@ function isOfficialList(listObj){
   return !!(listObj && listObj.custom === false);
 }
 
+function setHintOptionsEnabled(enabled){
+  const hintSel = $("impostorHintMode");
+  if(!hintSel) return;
+  [...hintSel.options].forEach((opt)=>{
+    if(opt.value !== "off") opt.disabled = !enabled;
+  });
+}
+
 function updateHintVisibility(){
   const wrap = $("hintWrap");
   const sel = $("pickList");
@@ -611,17 +632,20 @@ function updateHintVisibility(){
   const listObj = findListById(lists, sel.value) || lists[0];
   const hasCustomHints = !!(listObj && listObj.custom === true && listObj.aiHints && typeof listObj.aiHints === "object" && Object.keys(listObj.aiHints).length);
   const isOfficial = isOfficialList(listObj);
-  const show = isOfficial || hasCustomHints;
+  const hintReady = isOfficial || hasCustomHints;
 
-  wrap.hidden = !show;
-  if(info){
-    info.hidden = !show;
-    info.textContent = hasCustomHints
-      ? "Esta lista tiene pistas IA ✅"
-      : (isOfficial ? "Esta lista tiene pistas ✅" : "");
-  }
-  if(!show){
+  wrap.hidden = false;
+  setHintOptionsEnabled(hintReady);
+
+  if(!hintReady){
     hintSel.value = "off";
+  }
+
+  if(info){
+    info.hidden = false;
+    info.textContent = hintReady
+      ? (hasCustomHints ? "Esta lista personalizada tiene pistas IA ✅" : "Esta lista tiene pistas ✅")
+      : "Esta lista aún no tiene pistas IA. Genéralas en 'Mis palabras' para activar pista fácil/difícil.";
   }
 }
 
@@ -1021,9 +1045,23 @@ function nextRevealImage(){
 let pendingSecret = { title: "", value: "", extraHtml: "", isImpostor: false };
 let isSecretShown = false;
 
+if(revealImg){
+  REVEAL_IMAGES.slice(0,2).forEach((src)=>{
+    const img = new Image();
+    img.src = src;
+  });
+  revealImg.addEventListener("error", ()=>{
+    revealImg.src = REVEAL_IMAGES[0];
+    revealImg.classList.add("revealImgFallback");
+  });
+  revealImg.addEventListener("load", ()=> revealImg.classList.remove("revealImgFallback"));
+}
+
+
 function setRevealBackground(){
   if(!revealImg) return;
-  revealImg.src = nextRevealImage();
+  const next = nextRevealImage();
+  revealImg.src = next;
 }
 
 function hideSecretUI(){
@@ -1227,41 +1265,62 @@ async function onGenerateHintsClick(){
 
   try{
     const data = await generateHintsViaWebhook({ words, lang: "es", easyCount: 5, hardCount: 5 });
-    const items = Array.isArray(data?.items) ? data.items : [];
+    const items = Array.isArray(data)
+      ? data
+      : (Array.isArray(data?.items) ? data.items : (Array.isArray(data?.data?.items) ? data.data.items : []));
     // Normalizamos claves para que coincidan aunque el webhook devuelva
     // palabras con distinta capitalización/espacios.
     const map = new Map(
       items
         .filter(Boolean)
-        .map(x => [normWord(String(x.word || "")), x])
+        .map(x => {
+          const rawWord = x.word ?? x.palabra ?? x.term ?? x.keyword ?? "";
+          return [normWord(String(rawWord)), x];
+        })
         .filter(([k]) => !!k)
     );
 
     // Guardar en la lista (aiHints: { word: {easy:[], hard:[]} })
     listObj.words = words;
     listObj.aiHints = listObj.aiHints && typeof listObj.aiHints === "object" ? listObj.aiHints : {};
+    let storedHints = 0;
     for(const w of words){
       const key = normWord(w);
       const x = map.get(key);
       if(x){
         // Guardamos por clave normalizada para que luego el juego pueda
         // encontrar la pista aunque el usuario escriba "Juan" vs "juan".
-        listObj.aiHints[key] = {
-          easy: Array.isArray(x.easy) ? x.easy.slice(0,10) : [],
-          hard: Array.isArray(x.hard) ? x.hard.slice(0,10) : []
-        };
+        const easy = Array.isArray(x.easy) ? x.easy.slice(0,10) : [];
+        const hard = Array.isArray(x.hard) ? x.hard.slice(0,10) : [];
+        if(easy.length || hard.length){
+          listObj.aiHints[key] = { easy, hard };
+          storedHints++;
+        }
       }
     }
+    if(storedHints === 0){
+      throw new Error("WEBHOOK_EMPTY_HINTS");
+    }
+
     saveAllLists(lists);
     refreshListSelectors();
 
-    if(st) st.textContent = "Pistas generadas y guardadas ✅";
+    if($("pickCategory")) $("pickCategory").value = "Todas";
+    if($("pickList")) $("pickList").value = listObj.id;
+    updateHintVisibility();
+    applyHintModeForCurrentList();
+
+    if(st) st.textContent = `Pistas generadas y guardadas ✅ (${storedHints} palabras con pista)`;
   }catch(e){
     console.error(e);
     if(String(e?.message||"").includes("NO_WEBHOOK")){
       alert("Falta el webhook de n8n.");
+    }else if(String(e?.message||"").includes("TIMEOUT")){
+      alert("El webhook tardó demasiado en responder.\n\nComprueba la conexión móvil o el servidor de n8n.");
+    }else if(String(e?.message||"").includes("EMPTY_HINTS")){
+      alert("El webhook respondió, pero no llegaron pistas válidas.\n\nRevisa que cada item tenga word/palabra y arrays easy/hard.");
     }else{
-      alert("No se pudieron generar las pistas.\n\nAsegúrate de que tu webhook responde con JSON en formato { items: [...] }.");
+      alert("No se pudieron generar las pistas.\n\nAsegúrate de que tu webhook responde con JSON en formato { items: [...] } o en un array directo.");
     }
     if(st) st.textContent = "";
   }finally{
